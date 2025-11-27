@@ -51,13 +51,12 @@ Run in ghci using:
     - cabal.project
     Build profile: -w ghc-9.12.2 -O1
     In order, the following will be built (use -v for more details):
-     - kaggle-0.1.0.0 (interactive) (lib) (configuration changed)
-    Configuring library for kaggle-0.1.0.0...
+     - kaggle-0.1.0.0 (interactive) (lib) (file src/Kaggle.hs changed)
     Preprocessing library for kaggle-0.1.0.0...
     GHCi, version 9.12.2: https://www.haskell.org/ghc/  :? for help
     [1 of 1] Compiling Kaggle           ( src/Kaggle.hs, interpreted )
     Ok, one module loaded.
-    Setting phasers to stun... (port 916g0h)c i(>c trl-c to quit)
+    Setting pghhacsie>r s to stun... (port 9160) (ctrl-c to quit)
 
 
 ### Example chart display
@@ -136,6 +135,23 @@ It&rsquo;s a good chunky first example.
     True
 
 ![img](other/box1.svg)
+
+
+## scatterPlot example
+
+    c0 = (either (error . show) id) (columnAsDoubleVector "interest_rate" df)
+    c1 = (either (error . show) id) (columnAsDoubleVector "loan_amount" df)
+    
+    ch = GlyphChart defaultGlyphStyle (Prelude.take 1000 $ zipWith Point (VU.toList c0) (VU.toList c1))
+    
+    ch' = (mempty :: ChartOptions) & set #chartTree (named "scatterPlot" [ch]) & set #hudOptions defaultHudOptions
+    
+    writeChartOptions "other/scatter1.svg" ch'
+    disp ch'
+
+    True
+
+![img](other/scatter1.svg)
 
 
 # reference
