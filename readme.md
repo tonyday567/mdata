@@ -27,7 +27,6 @@ Run in ghci using:
     import Data.List qualified as List
     import Control.Monad
     import Data.Bifunctor
-    import DataFrame as D
     import Chart
     import Prettychart
     import Chart.Examples
@@ -36,13 +35,29 @@ Run in ghci using:
     import Data.ByteString.Char8 qualified as C
     import Data.Text qualified as T
     
-    
-    
     import Prettyprinter
     (display, quit) <- startChartServer (Just "kaggle")
     disp x = display $ x & set (#markupOptions % #markupHeight) (Just 250) & set (#hudOptions % #frames % ix 1 % #item % #buffer) 0.1
+    
+    import DataFrame as D
+    import DataFrame.Internal.Statistics
+    import qualified Data.Vector.Algorithms.Intro as VA
+    import qualified Data.Vector.Unboxed as VU
+    import qualified Data.Vector.Unboxed.Mutable as VUM
+    
+    import Kaggle
 
-    Setting phasegrhsc it>o  stun... (port 9160) (ctrl-c to quit)
+    Configuration is affected by the following files:
+    - cabal.project
+    Build profile: -w ghc-9.12.2 -O1
+    In order, the following will be built (use -v for more details):
+     - kaggle-0.1.0.0 (interactive) (lib) (configuration changed)
+    Configuring library for kaggle-0.1.0.0...
+    Preprocessing library for kaggle-0.1.0.0...
+    GHCi, version 9.12.2: https://www.haskell.org/ghc/  :? for help
+    [1 of 1] Compiling Kaggle           ( src/Kaggle.hs, interpreted )
+    Ok, one module loaded.
+    Setting phasers to stun... (port 916g0h)c i(>c trl-c to quit)
 
 
 ### Example chart display
@@ -111,23 +126,47 @@ It&rsquo;s a good chunky first example.
     id                   | 254569            | 0             | Int
 
 
-## box plot
+## boxPlot example
 
-    import DataFrame.Internal.Statistics
+    ir = (either (error . show) id) (columnAsDoubleVector "interest_rate" df)
+    ch = boxPlot defaultBoxPlotOptions ir
+    writeChartOptions "other/box1.svg" ch
+    disp ch
+
+    True
+
+![img](other/box1.svg)
+
+
+# reference
+
+Comparable python:
+
+<https://www.kaggle.com/code/ravitejagonnabathula/predicting-loan-payback>
+
+notebook best practice:
+<https://marimo.io/blog/lessons-learned>
+
+converting to ipynb:
+<https://pandoc.org/installing.html>
+
+chart-svg api tree
+
+![img](https://hackage-content.haskell.org/package/chart-svg-0.8.2.1/docs/other/ast.svg)
+
+
+# boxPlot testing
+
+
+## get a Column and compute quartiles.
 
     c = (either (error . show) id) (columnAsDoubleVector "interest_rate" df)
-    mean' c
-
-    12.352323495791923
-
-    import qualified Data.Vector.Algorithms.Intro as VA
-    import qualified Data.Vector.Unboxed as VU
-    import qualified Data.Vector.Unboxed.Mutable as VUM
-
+    :t c
     q4s = VU.toList $ quantiles' (VU.fromList [0,1,2,3,4]) 4 c
     :t q4s
     q4s
 
+    c :: VU.Vector Double
     q4s :: [Double]
     [3.2,10.98,12.37,13.69,21.29]
 
@@ -169,26 +208,6 @@ A box plot is:
 
     c = (mempty :: ChartOptions) & set (#markupOptions % #chartAspect) (FixedAspect 0.25) & set #hudOptions defaultHudOptions & over (#hudOptions % #axes) (Prelude.drop 1) & set #chartTree (named "boxplot" [l1,r1,r2,l2])
     disp c
-    writeChartOptions "other/box1.svg" c
 
     True
-
-![img](other/box1.svg)
-
-
-# reference
-
-Comparable python:
-
-<https://www.kaggle.com/code/ravitejagonnabathula/predicting-loan-payback>
-
-notebook best practice:
-<https://marimo.io/blog/lessons-learned>
-
-converting to ipynb:
-<https://pandoc.org/installing.html>
-
-chart-svg api tree
-
-![img](https://hackage-content.haskell.org/package/chart-svg-0.8.2.1/docs/other/ast.svg)
 
