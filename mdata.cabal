@@ -108,5 +108,7 @@ library
     flow,
     lens,
     numhask,
+    numhask-space,
+    harpie,
   exposed-modules:
     MData

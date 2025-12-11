@@ -10,15 +10,6 @@ This repo contains:
 - some pandoc conversion experiments: from org => markdown => ipynb
   (This is not catered for in nbconvert or jupytext wrt outputs)
 
-* pandocs
-
-We're after t3.md == t3b.md
-
-#+begin_src sh :results output
-pandoc -i t3.md -f markdown -o t3.ipynb -t ipynb
-pandoc -i t3.ipynb -f ipynb -o t3b.md -t markdown
-#+end_src
-
 * Imports
 
 #+begin_src haskell-ng :results output
@@ -36,6 +27,7 @@ pandoc -i t3.ipynb -f ipynb -o t3b.md -t markdown
 -- base, text & bytestring encoding (compatability check, also)
 import Prelude as P
 import NumHask.Prelude qualified as N
+import NumHask.Space qualified as N
 import Control.Category ((>>>))
 import Data.Function
 import Data.Maybe
@@ -74,7 +66,7 @@ import Flow
 import MData
 
 -- example data from https://www.kaggle.com/competitions/playground-series-s5e11
-dfTest <- D.readCsv "data/s5e11/test.csv"
+df <- D.readCsv "data/s5e11/test.csv"
 
 #+end_src
 
@@ -102,7 +94,7 @@ disp x = display $ x & set (#markupOptions % #markupHeight) (Just 250) & set (#h
 #+end_src
 
 #+RESULTS:
-: Setting phasers to stun...g h(cpio>r t 9160) (ctrl-c to quit)
+: Setting phasers to stugnh.c.i.>  (port 9160) (ctrl-c to quit)
 
 http://localhost:9160/
 
@@ -117,7 +109,7 @@ disp unitExample
 
 ** dataframe creation
 
-idiomatic dataframe style?
+*** direct method
 
 #+begin_src haskell-ng :results output :exports both
 df0 = mempty |> D.insert "item" ["person","woman","man","camera","tv"] |> D.insert "value" [20,23.1,31,16,10]
@@ -158,7 +150,8 @@ df
  item  | value  |         prop
 -------|--------|---------------------
 [Char] | Double |        Double
--------|--------|---------------------
+-- . show) id) (D.columnAsDoubleVector e df)
+-----|--------|---------------------
 person | 20.0   | 0.16652789342214822
 woman  | 23.1   | 0.1923397169025812
 man    | 31.0   | 0.2581182348043297
@@ -169,7 +162,7 @@ tv     | 10.0   | 8.326394671107411e-2
 *** F.sum bug?
 
 #+begin_src haskell-ng :results output :exports both
-df0 = mempty |> D.insert "item" ["person","woman","man","camera","tv"] |> D.insert "value" [20,23.1,31,16,10]
+df0 = mempty |> D.insert "value" [20,23.1,31,16,10]
 v = F.col @Double "value"
 df = D.derive "sum" (F.sum v) df0
 df
@@ -177,16 +170,16 @@ df
 
 #+RESULTS:
 #+begin_example
-------------------------
- item  | value  |  sum
--------|--------|-------
-[Char] | Double | Double
--------|--------|-------
-person | 20.0   | 120.1
-woman  | 23.1   | 120.1
-man    | 31.0   | 120.1
-camera | 16.0   | 120.1
-tv     | 10.0   | 120.1
+---------------
+value  |  sum
+-------|-------
+Double | Double
+-------|-------
+20.0   | 120.1
+23.1   | 120.1
+31.0   | 120.1
+16.0   | 120.1
+10.0   | 120.1
 #+end_example
 
 
@@ -259,7 +252,10 @@ secantPie (Secant o r a0 a1) = singletonPie o (ArcPosition (o N.+ ra a0) (o N.+ 
 
 This is a very common scan for a Column.
 
-#+begin_src haskell-ng :file other/pie.svg :results output graphics file :exports both
+#+begin_src haskell-ng
+-- :file other/pie.svg :results output graphics file :exports both
+ls = T.pack <$> D.columnAsList @String "item" df
+vs = D.columnAsList @Double "prop" df
 acc0 = List.scanl' (+) 0 vs <> [1]
 mids = zipWith (\a0 a1 -> (a0+a1)/2) acc0 (List.drop 1 acc0)
 
@@ -274,24 +270,17 @@ writeChartOptions "other/pie.svg" co
 #+end_src
 
 #+RESULTS:
-[[file:other/pie.svg]]
+: True
 
 
 [[file:other/pie.svg]]
-
 
 * kaggle example
-
-** Initial build
-
-#+begin_src sh :results output
-cabal init  --non-interactive mdata -d "base,dataframe,perf,chart-svg,prettychart,vector"
-#+end_src
-
 ** dataframe check
 
 #+begin_src haskell-ng :results output
 D.describeColumns df
+D.summarize df
 #+end_src
 
 #+RESULTS:
@@ -315,30 +304,96 @@ annual_income        | 254569            | 0             | Double
 id                   | 254569            | 0             | Int
 #+end_example
 
+* chart dev
+
+** piePlot
+
+Pie chart convention starts at the y-axis and lays out secant slices clockwise.
+
+`ra` maps (0,1) (the proportional pie slice) into a point on a unit circle (by this convetion).
+
 #+begin_src haskell-ng :results output
-D.summarize df
+ra = (+(-0.25)) .> (*(-2 * pi)) .> ray @(Point Double)
+secantPie (Secant o r a0 a1) = singletonPie o (ArcPosition (o N.+ ra a0) (o N.+ ra a1) (ArcInfo (Point r r) 0 False True))
 #+end_src
 
 #+RESULTS:
-#+begin_example
---------------------------------------------------------------------------------------------------------
-Statistic |    id    | annual_income | debt_to_income_ratio | credit_score | loan_amount | interest_rate
-----------|----------|---------------|----------------------|--------------|-------------|--------------
-  Text    |  Double  |    Double     |        Double        |    Double    |   Double    |    Double
-----------|----------|---------------|----------------------|--------------|-------------|--------------
-Count     | 254569.0 | 254569.0      | 254569.0             | 254569.0     | 254569.0    | 254569.0
-Mean      | 721278.0 | 48233.08      | 0.12                 | 681.04       | 15016.75    | 12.35
-Minimum   | 593994.0 | 6011.77       | 1.0e-2               | 395.0        | 500.05      | 3.2
-25%       | 657636.0 | 27950.3       | 7.0e-2               | 646.0        | 10248.58    | 10.98
-Median    | 721278.0 | 46528.98      | 0.1                  | 683.0        | 15000.22    | 12.37
-75%       | 784920.0 | 61149.44      | 0.16                 | 719.0        | 18831.46    | 13.69
-Max       | 848562.0 | 380653.94     | 0.63                 | 849.0        | 48959.26    | 21.29
-StdDev    | 73487.88 | 26719.66      | 7.0e-2               | 55.62        | 6922.17     | 2.02
-IQR       | 127284.0 | 33199.14      | 8.0e-2               | 73.0         | 8582.88     | 2.71
-Skewness  | 0.0      | 1.72          | 1.42                 | -0.17        | 0.21        | 4.0e-2
-#+end_example
 
-* chart dev
+This is a very common scan for a Column.
+
+#+begin_src haskell-ng
+-- :file other/pie.svg :results output graphics file :exports both
+ls = T.pack <$> D.columnAsList @String "item" df
+vs = D.columnAsList @Double "prop" df
+
+acc0 = List.scanl' (+) 0 vs <> [1]
+mids = zipWith (\a0 a1 -> (a0+a1)/2) acc0 (List.drop 1 acc0)
+
+xs = zipWith (\a0 a1 -> secantPie (Secant (0.05 N.*| ra ((a0+a1)/2)) one a0 a1)) acc0 (List.drop 1 acc0)
+
+cs = zipWith (\c x -> PathChart (defaultPathStyle |> set #borderSize 0 |> set #color (paletteO c 0.3)) x) [0..] xs
+
+ct = zipWith (\c (t,a) -> TextChart (defaultTextStyle |> set #size 0.05 |> set #color (palette c & over lightness' (*0.6))) [(t, 0.7 N.*| ra a)]) [0..] (zip ls mids)
+co = (mempty :: ChartOptions) & set (#markupOptions % #chartAspect) ChartAspect & set #chartTree ((cs <> ct) |> unnamed)
+disp co
+writeChartOptions "other/pie.svg" co
+#+end_src
+
+#+RESULTS:
+: True
+
+
+[[file:other/pie.svg]]
+
+
+
+** histPlot example
+
+#+begin_src haskell-ng :results output
+c0 = (either (error . show) id) (D.columnAsDoubleVector "interest_rate" df)
+-- ch = boxPlot defaultBoxPlotOptions c0
+-- writeChartOptions "other/box1.svg" ch
+-- disp ch
+VU.length c0
+#+end_src
+
+#+RESULTS:
+: 254569
+
+#+begin_src haskell-ng :results output
+grain = 10
+r = N.unsafeSpace1 $ VU.toList c0 :: (Range Double)
+hcuts = N.gridSensible N.OuterPos False r grain
+h = N.fill hcuts (VU.toList c0)
+rects = filter (\(Rect _ _ _ y') -> y' /= 0) $ N.makeRects (N.IncludeOvers (N.width r / fromIntegral grain)) h
+h = named "histogram" [RectChart (defaultRectStyle |> set #color (paletteO 2 0.2) |> set #borderColor (paletteO 2 1)) rects]
+
+disp <| (mempty |> set #chartTree h |> set #hudOptions (mempty |> set #axes [Priority 5 (defaultXAxisOptions |> set (#ticks % #lineTick) Nothing)] |> set #titles [ (defaultTitleOptions "interest_rate" |> set #place PlaceBottom |> set (#style % #size) 0.08 |> set (#style % #color) (paletteO 2 1) |> Priority 8)]))
+
+#+end_src
+
+#+RESULTS:
+: True
+
+#+begin_src haskell-ng :file other/hist.svg :results output graphics file :exports both
+h = histPlot defaultHistPlotOptions (Just "interest_rate", c0)
+disp h
+writeChartOptions "other/hist.svg" h
+#+end_src
+
+#+RESULTS:
+[[file:other/hist.svg]]
+#+begin_src haskell-ng :results output
+
+e = "annual_income"
+c = (either (error . show) id) (D.columnAsDoubleVector e df)
+h = histPlot defaultHistPlotOptions (Just e, c)
+disp h
+#+end_src
+
+#+RESULTS:
+: True
+: ob-haskell-ng-eoe
 
 ** boxPlot example
 
@@ -527,3 +582,8 @@ disp c
 #+RESULTS:
 : True
 
+* initial build
+
+#+begin_src sh :results output
+cabal init  --non-interactive mdata -d "base,dataframe,perf,chart-svg,prettychart,vector"
+#+end_src
