@@ -35,7 +35,6 @@ Charts for dataframes built with chart-svg.
 ** open issues
 
 - Compare <> usage with ggplot's `+` operator
-- plot :: DataFrame -> ChartOptions
 
 ** chart-svg design (and dataframe-plot by usage):
 
@@ -59,7 +58,8 @@ Charts for dataframes built with chart-svg.
 
 Starting with a postscript, suffixed or pipe-based approach with operators similar to many jupyter providers:
 
-```haskell
+
+#+begin_src haskell-ng :results output
 Plt.histogram someData
   |> Plt.numBins 30
   |> Plt.colourWith otherData
@@ -70,19 +70,19 @@ Plt.scatter penguinHeight
   |> Plt.colourWith penguinSpecies
   |> Plt.setTitle "my penguin chart"
   |> Plt.render
-```
+#+end_src
 
-*** `histogram df`
+*** ~histogram df~
 
-It's natural (ie a paper-thin layer) to have `histogram df` produce a ChartOption with reasonable defaults for a histogram. It might be better to separate api's but assuming this anyway is quite good for early development.
+It's natural (ie a paper-thin layer) to have ~histogram df~ produce a ChartOption with reasonable defaults for a histogram. It might be better to separate api's but assuming this anyway is quite good for early development.
 
-`histogram == histogramWith defaultHistogramOptions` is a really nice way of tucking the config away until needed. It can be wrapped in a ReaderT and form part of a bigger, pure-layer cake if needed. I find that embedding that ReaderT decision is an antipattern, and destroyes functional coherence, and prefer the function hook.
+~histogram == histogramWith defaultHistogramOptions~ is a really nice way of tucking the config away until needed. It can be wrapped in a ReaderT and form part of a bigger, pure-layer cake if needed. I find that embedding that ReaderT decision is an antipattern, and destroyes functional coherence, and prefer the function hook.
 
 *** Yes to setTitle
 
 =chart-svg= is biased in that it provides =optics-core= lenses, using them internally, in examples, and exposed in the API.
 
-So `Plt.setTitle "my penguin chart"` is roughly:
+So ~Plt.setTitle "my penguin chart"~ is roughly:
 
 `
 #+begin_src haskell-ng :results output
@@ -92,7 +92,7 @@ histogramWith o df
 
 However, should a histogram reliably have a title?
 
-You can always add a title to a ChartOptions, or remove it, or any hud element, or the data etc etc, so a case can be made for having a `setTitle :: ChartOptions -> ChartOptions` in the pipeline that covers all charts rather than a title option in each chart type.
+You can always add a title to a ChartOptions, or remove it, or any hud element, or the data etc etc, so a case can be made for having a ~setTitle :: ChartOptions -> ChartOptions~ in the pipeline that covers all charts rather than a title option in each chart type.
 
 So then we can say:
 
@@ -117,7 +117,7 @@ To write a setBins, you need the df again rather than a ChartOptions, so you can
 
 Plt.colourWith penguinSpecies looks like it assumes a dataframe under the hood, or that the shape of penguinSpecies matches penguinHeight.
 
-`scatter df` feels like an operation on a two column dataframe, and then you color the glyphs according to a row-name mapping of penguinHeight with penguinSpecies. I would likely use dataframes to organize that internally to chart-svg if I had to.
+~scatter df~ feels like an operation on a two column dataframe, and then you color the glyphs according to a row-name mapping of penguinHeight with penguinSpecies. I would likely use dataframes to organize that internally to chart-svg if I had to.
 
 Stepping through the options:
 
@@ -136,8 +136,7 @@ scatters xs = zipWith scatter .> mconcat
 
 You can see here how data (species) bleeds into Style (colour). This is not the grammar of plots. =ChartData= is an enforcement of specifying XY-ity of the data so automatic scaling is easy (survives the combinators).
 
-
-*** why dataframe is best
+*** why dataframe is a nice input.
 
 #+begin_src haskell-ng :results output
 scatter :: ScatterOptions -> DataFrame -> ChartOptions
@@ -354,7 +353,7 @@ A pie chart is a type of 'size' chart where the size of a shape represents data 
 *** workings
 Pie chart convention starts at the y-axis and lays out secant slices clockwise.
 
-`ra` maps (0,1) (the proportional pie slice) into a point on a unit circle (by this convetion).
+~ra~ maps (0,1) (the proportional pie slice) into a point on a unit circle (by this convetion).
 
 #+begin_src haskell-ng :results output
 ra = (+(-0.25)) .> (*(-2 * pi)) .> ray @(Point Double)
@@ -709,7 +708,7 @@ writeChartOptions "other/bar3.svg" bc''
 
 Pie chart convention starts at the y-axis and lays out secant slices clockwise.
 
-`ra` maps (0,1) (the proportional pie slice) into a point on a unit circle (by this convetion).
+~ra~ maps (0,1) (the proportional pie slice) into a point on a unit circle (by this convetion).
 
 #+begin_src haskell-ng :results output
 ra = (+(-0.25)) .> (*(-2 * pi)) .> ray @(Point Double)
