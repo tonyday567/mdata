@@ -4,7 +4,6 @@ dataframe plots and operations.
 
 Charts for dataframes built with chart-svg.
 
-
 * ToDo plan
 
 - write main chart functions
@@ -17,7 +16,160 @@ Charts for dataframes built with chart-svg.
 
 * Next Examples
 
+- [ ] reduce this list to minimum set
+
+#+begin_src haskell-ng :results output
+:r
+
+:set -XNoImplicitPrelude
+:set -XImportQualifiedPost
+:set -Wno-type-defaults
+:set -Wno-name-shadowing
+:set -XOverloadedLabels
+:set -XOverloadedStrings
+:set -XTupleSections
+:set -XQuasiQuotes
+
+-- base, text & bytestring encoding (compatability check, also)
+import Prelude as P
+import NumHask.Prelude qualified as N
+import NumHask.Space qualified as N
+import Control.Category ((>>>))
+import Data.Function
+import Data.Maybe
+import Data.Bool
+import Data.List qualified as List
+import Control.Monad
+import Data.Bifunctor
+import Data.ByteString.Char8 qualified as C
+import Data.Text qualified as T
+
+-- prettyprinter (dev help)
+import Prettyprinter
+
+-- common dataframe imports
+import DataFrame qualified as D
+import DataFrame.Functions qualified as F
+import DataFrame.Internal.Expression qualified as D
+import DataFrame.Internal.Statistics qualified as D
+import qualified Data.Vector.Algorithms.Intro as VA
+import qualified Data.Vector.Unboxed as VU
+import qualified Data.Vector.Unboxed.Mutable as VUM
+
+-- common chart-svg imports
+import Chart
+import Prettychart
+import Chart.Examples
+import Optics.Core hiding ((|>),(<|))
+import Control.Lens qualified as Lens
+import Data.Data.Lens qualified as Lens
+
+-- random variates
+import System.Random.Stateful
+import System.Random.MWC
+import System.Random.MWC.Distributions
+
+-- dev helpers
+import Perf
+import Flow
+
+-- dataframe chart-svg interface
+import DataFrame.Plot
+
+-- example data from https://www.kaggle.com/competitions/playground-series-s5e11
+dfTest <- D.readCsv "other/s5e11/test.csv"
+v = F.col @Double "value"
+df0 = mempty |> D.insert "item" ["person","woman","man","camera","tv"] |> D.insert "value" [20,23.1,31,16,10]
+xs = D.columnAsList @Double "value" df0
+xs' = (/ sum xs) <$> xs
+df = D.insert "prop" xs' df0
+
+-- initialize a random seed
+-- uniformRM (0,1) g :: IO Double
+g <- initialize $ VU.fromList [1,2,3]
+
+rend = writeChartOptions
+
+#+end_src
+
+#+RESULTS:
+#+begin_example
+Configuration is affected by the following files:
+- cabal.project
+Build profile: -w ghc-9.12.2 -O1
+In order, the following will be built (use -v for more details):
+ - dataframe-plot-0.1.0.0 (interactive) (lib) (first run)
+Preprocessing library for dataframe-plot-0.1.0.0...
+GHCi, version 9.12.2: https://www.haskell.org/ghc/  :? for help
+[1 of 1] Compiling DataFrame.Plot   ( src/DataFrame/Plot.hs, interpreted )
+Ok, one module loaded.
+Ok, one module reloaded.
+#+end_example
+
+
 - Histogram
+
+
+At defaults
+
+#+begin_src haskell-ng :results output
+df = dfTest
+
+-- This doesnt work
+-- c0 = D.columnAsList "interest_rate" df
+c0 = D.columnAsList @Double "interest_rate" df
+h = histogram defaultHistogramOptions c0
+
+:t h
+disp h
+rend "other/histogram.svg" h
+
+#+end_src
+
+#+RESULTS:
+: h :: ChartOptions
+: True
+
+[[file:other/histogram.svg]]
+
+skinny, with a title & no axis
+
+#+begin_src haskell-ng :results output
+h2 = h |> setTitle "penguins" |> set (#hudOptions % #axes) [] |> set (#markupOptions % #chartAspect) (FixedAspect 0.5)
+
+disp h2
+rend "other/histogram2.svg" h2
+
+#+end_src
+
+#+RESULTS:
+: True
+
+[[file:other/histogram2.svg]]
+
+
+#+begin_src haskell-ng :results output
+h3 = h |> over (#chartTree % chart' % #chartData % rectData') (fmap (fmap N.flipAxes))
+
+disp h3
+rend "other/histogram3.svg" h2
+
+#+end_src
+
+#+RESULTS:
+: True
+
+[[file:other/histogram3.svg]]
+
+#+begin_src haskell-ng :results output
+:t flipRect
+#+end_src
+
+#+RESULTS:
+: <interactive>:1:1: error: [GHC-88464]
+:     Variable not in scope: flipRect
+
+
 - Line
   - multiple series, markers, dashed lines
 - Scatter
@@ -160,7 +312,6 @@ which can mean that the x and y data for Points is in columns 0 and 1 and the co
   - =vert=, =hori=, =stack= need work
   - sharing axes is possible but might be fragile.
 
-
 * Development
 
 #+begin_src haskell-ng :results output
@@ -241,14 +392,16 @@ Configuration is affected by the following files:
 - cabal.project
 Build profile: -w ghc-9.12.2 -O1
 In order, the following will be built (use -v for more details):
- - mdata-0.1.0.0 (interactive) (lib) (configuration changed)
-Configuring library for mdata-0.1.0.0...
-Preprocessing library for mdata-0.1.0.0...
+ - dataframe-plot-0.1.0.0 (interactive) (lib) (first run)
+Preprocessing library for dataframe-plot-0.1.0.0...
 GHCi, version 9.12.2: https://www.haskell.org/ghc/  :? for help
-[1 of 1] Compiling MData            ( src/MData.hs, interpreted )
+[1 of 1] Compiling DataFrame.Plot   ( src/DataFrame/Plot.hs, interpreted )
 Ok, one module loaded.
 Ok, one module reloaded.
-0.6412828884280135
+,*** Exception: data/s5e11/test.csv: openBinaryFile: does not exist (No such file or directory)
+
+HasCallStack backtrace:
+  ioError, called at libraries/ghc-internal/src/GHC/Internal/Foreign/C/Error.hs:291:5 in ghc-internal:GHC.Internal.Foreign.C.Error
 #+end_example
 
 ** Live charts
@@ -257,13 +410,13 @@ This gives you a browser page and live charting capabilities.
 
 #+begin_src haskell-ng
 -- live charts
-(display, quit) <- startChartServer (Just "mdata")
+(display, quit) <- startChartServer Nothing
 disp x = display $ x & set (#markupOptions % #markupHeight) (Just 250) & set (#hudOptions % #frames % ix 1 % #item % #buffer) 0.1
 
 #+end_src
 
 #+RESULTS:
-: Setting phasers to stguhnc.i.>.  (port 9160) (ctrl-c to quit)
+: Setting phasergsh ctio>  stun... (port 9160)g h(ccit>r l-c to quit)
 
 http://localhost:9160/
 
@@ -320,7 +473,6 @@ StdDev    | 73487.88 | 26719.66      | 7.0e-2               | 55.62        | 692
 IQR       | 127284.0 | 33199.14      | 8.0e-2               | 73.0         | 8582.88     | 2.71
 Skewness  | 0.0      | 1.72          | 1.42                 | -0.17        | 0.21        | 4.0e-2
 #+end_example
-
 
 ** onLoad
 
@@ -504,8 +656,11 @@ disp h
 writeChartOptions "other/hist.svg" h
 #+end_src
 
+
+
 #+RESULTS:
 [[file:other/hist.svg]]
+
 #+begin_src haskell-ng :results output
 
 e = "annual_income"
