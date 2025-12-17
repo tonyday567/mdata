@@ -112,5 +112,6 @@ library
     harpie,
     random,
     mwc-random,
+    mealy,
   exposed-modules:
     DataFrame.Plot

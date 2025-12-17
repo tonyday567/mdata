@@ -4,19 +4,16 @@ dataframe plots and operations.
 
 Charts for dataframes built with chart-svg.
 
-* ToDo plan
-
 - write main chart functions
   - write with a [Double] data type, HistogramOption style.
   - example
-  - main options
 
 - write `D.plot df`
   - Using dataframe metadata for default axis titles
 
 * Next Examples
 
-- Histogram
+** Histogram
 
 At defaults
 
@@ -76,148 +73,417 @@ rend "other/histogram3.svg" h3
 #+RESULTS:
 : N.flipAxes :: Rect a -> Rect a
 
-- Line
-  - multiple series, markers, dashed lines
-- Scatter
+** Scatter
 
-  single scatter
-  multi-scatter
-  multi-glyphed
-- Bar
-  - simple, grouped, stacked, horizontal
-- Pie
+single scatter: side-by-side comparison
 
-* ToDo design notes
+#+begin_src haskell-ng :results output
+df = dfTest
+xs = take 100 $ D.columnAsList "interest_rate" df
+ys = D.columnAsList "loan_amount" df
+ch = scatter (defaultScatterOptions |> set (#styles % each % #color % opac') 0.2 |> set (#styles % each % #borderColor % opac') 0.5 |> set (#styles % each % #size) 0.05 |> set (#styles % each % #glyphShape) SquareGlyph) xs ys
+ch' = scatter (defaultScatterOptions |> set (#styles % each % #color % opac') 0.2 |> set (#styles % each % #borderColor % opac') 0.5 |> set (#styles % each % #size) 0.05 |> set (#styles % each % #glyphShape) CircleGlyph) xs ys
+chs = horiCO AlignMid 0.1 [ch', ch]
+-- rend "other/scatter1.svg" chf
+disp chs
 
-** open issues
+#+end_src
 
-- Compare <> usage with ggplot's `+` operator
+#+RESULTS:
+: True
 
-** chart-svg design (and dataframe-plot by usage):
-
-- Outputs SVG Text as the primary output (browser embeddable, iHaskell compatible, easily saved)
-  - markup-parse and Markup used as an intermediary type between a ChartOption and Text types is exposed in the chart-svg API.
-- Math-based content exposed is based in numhask-space: histogram/quantile computation, time calcs, Rect and Point math.
-- ChartData is two-dimensional via either `Point x y` or `Rect x0 x1 y0 y1`.
-- Maximally configurable with no hard-coded values.
-- ChartOptions is simply MarkupOptions (SVG settings), HudOptions (axes, titles, legends), and a ChartTree containing a tree of named charts. ChartOptions are showable, serializable and can be considered a compressed form of an eventual SVG text-based chart.
-- A Chart divides into Style (shared by all Chart types) and ChartData, a sum type splitting into 6 basic chart primitives.
-- SVG inspired usage of Path, opacity and automatic scaling.
-
-** (accepted?) limitations
-
-- Design leads to a large API.
-- Relies on lens
-- More complex than desired ergonomic interface
-- Requires understanding of SVG internals for advanced use
-
-** API Anaysis
-
-Starting with a postscript, suffixed or pipe-based approach with operators similar to many jupyter providers:
+Adding titles
 
 
 #+begin_src haskell-ng :results output
-Plt.histogram someData
-  |> Plt.numBins 30
-  |> Plt.colourWith otherData
-  |> Plt.render
-
-Plt.scatter penguinHeight
-  |> Plt.against penguinWeight
-  |> Plt.colourWith penguinSpecies
-  |> Plt.setTitle "my penguin chart"
-  |> Plt.render
+disp <| (ch |> over #hudOptions (addTitle PlaceLeft 0.05 "loan_amount" .> addTitle PlaceBottom 0.05 "interest_rate" .> set (#titles % each % #item % #buffer) 0.05))
 #+end_src
 
-*** ~histogram df~
+multi-scatter
 
-It's natural (ie a paper-thin layer) to have ~histogram df~ produce a ChartOption with reasonable defaults for a histogram. It might be better to separate api's but assuming this anyway is quite good for early development.
-
-~histogram == histogramWith defaultHistogramOptions~ is a really nice way of tucking the config away until needed. It can be wrapped in a ReaderT and form part of a bigger, pure-layer cake if needed. I find that embedding that ReaderT decision is an antipattern, and destroyes functional coherence, and prefer the function hook.
-
-*** Yes to setTitle
-
-=chart-svg= is biased in that it provides =optics-core= lenses, using them internally, in examples, and exposed in the API.
-
-So ~Plt.setTitle "my penguin chart"~ is roughly:
-
-`
-#+begin_src haskell-ng :results output
-o = defaultHistogramOptions |> set #histogramTitle "my penguin chart"
-histogramWith o df
-#+end_src
-
-However, should a histogram reliably have a title?
-
-You can always add a title to a ChartOptions, or remove it, or any hud element, or the data etc etc, so a case can be made for having a ~setTitle :: ChartOptions -> ChartOptions~ in the pipeline that covers all charts rather than a title option in each chart type.
-
-So then we can say:
+gender as a classifier
 
 #+begin_src haskell-ng :results output
-histogram df |> setTitle "my penguin chart"
+df = dfTest
+xs = D.columnAsList "interest_rate" df
+ys = D.columnAsList "loan_amount" df
+gs = D.columnAsList "gender" df
+ch = scatter (defaultScatterOptions |> set (#styles % each % #color % opac') 0.2 |> set (#styles % each % #borderColor % opac') 0.5 |> set (#styles % each % #size) 0.05 |> set (#styles % each % #glyphShape) SquareGlyph) xs ys
+ch' = scatter (defaultScatterOptions |> set (#styles % each % #color % opac') 0.2 |> set (#styles % each % #borderColor % opac') 0.5 |> set (#styles % each % #size) 0.05 |> set (#styles % each % #glyphShape) CircleGlyph) xs ys
+chs = horiCO AlignMid 0.1 [ch', ch]
+-- rend "other/scatter1.svg" chf
+disp chs
+
 #+end_src
 
-I think this logic stretches to all the axis and tick manipulations you can think of.
-
-*** No to setBins
-
-Because bins (called grain in numhask-space) is a parameter used to make the charts not decorate their edges like title, you can't use the same pattern. If you change your mind on bins, you will be rerunning histogram.
+#+RESULTS:
+: True
 
 #+begin_src haskell-ng :results output
-o = defaultHistogramOptions |> set #grain 10
-histogramWith o df
+import Data.Map.Strict qualified as Map
+zs = zip3 xs ys gs :: [(Double, Double, T.Text)]
+fst <$> cs
+
+collectP p q zs = foldl' (\acc z -> Map.insertWith (<>) (p z) [q z] acc) Map.empty zs
+ps = collectP (\(_,_,x)->x) (\(x,y,_) -> Point x y) zs
+
+c = scatters defaultScatterOptions (Map.toList ps)
+
+makeLegend labels cs = [ Priority 12 $ defaultLegendOptions & set #scaleP ScalePX & set #place PlaceRight & set #legendCharts (zipWith (\t c -> (t, [c])) labels cs)]
+
+scatterLegend = set #legends (makeLegend (fst <$> cs) ((\s -> GlyphChart s [zero]) <$> (view #styles defaultScatterOptions)))
+
+disp (c |> over #hudOptions scatterLegend)
+
 #+end_src
 
-To write a setBins, you need the df again rather than a ChartOptions, so you can't write it.
+#+RESULTS:
+: ["Female","Male","Other"]
+: True
 
-*** dataframe versus Column versus [Double]
-
-Plt.colourWith penguinSpecies looks like it assumes a dataframe under the hood, or that the shape of penguinSpecies matches penguinHeight.
-
-~scatter df~ feels like an operation on a two column dataframe, and then you color the glyphs according to a row-name mapping of penguinHeight with penguinSpecies. I would likely use dataframes to organize that internally to chart-svg if I had to.
-
-Stepping through the options:
-
-Here's a single scatter no species colouring:
-
-#+begin_src haskell-ng :results output
-scatter :: ScatterOptions -> [(Double,Double)] -> ChartOptions
-#+end_src
-
-multiple penguin species can be coloured like:
-
-#+begin_src haskell-ng :results output
-scatters :: [(ScatterOptions, [Double, Double])] -> ChartOptions
-scatters xs = zipWith scatter .> mconcat
-#+end_src
-
-You can see here how data (species) bleeds into Style (colour). This is not the grammar of plots. =ChartData= is an enforcement of specifying XY-ity of the data so automatic scaling is easy (survives the combinators).
-
-*** why dataframe is a nice input.
+*** a ScatterSchema?
 
 #+begin_src haskell-ng :results output
 scatter :: ScatterOptions -> DataFrame -> ChartOptions
 #+end_src
 
-Does scatter mean a single styled series of points or a multiply-coloured cast of penguins can be included in ScatterOptions. It could be:
+Does scatter mean a single styled series of points or a multiply-coloured cast of penguins can be included in ScatterOptions? It could be:
 
 #+begin_src haskell-ng :results output
 defaultScatterOptions = ScatterOptions ScatterSchema
 
-data ScatterSchema = [("x", 0), ("y", 1), ("colors", Just 2)]
+data ScatterSchema = [("x", "interest_rate"), ("y", "loan_amount"), ("colors", Just "gender")]
 
 #+end_src
 
-which can mean that the x and y data for Points is in columns 0 and 1 and the colors are in column 2 (but could be absent).
+which can mean that the x and y data for Points is in the columns "interest_rate" and "loan_amount" and the groupings (for color) are in column "gender" (but could be absent).
 
-*** Combinators
+** ToDo Line
 
-- the combinators in the library could be better developed.
-  - explain how Chart, ChartTree & ChartOptions combine.
-  - =vert=, =hori=, =stack= need work
-  - sharing axes is possible but might be fragile.
+  - multiple series, markers, dashed lines
+** ToDo Bar
 
-* Development
+  - simple, grouped, stacked, horizontal
+
+** ToDo HeatMap
+** Pie
+
+#+begin_src haskell-ng :results output
+import DataFrame.Internal.Expression (interpret)
+import DataFrame.Internal.Column (unwrapTypedColumn)
+
+df = dfTest
+:set -Wno-incomplete-uni-patterns
+(Right c) = interpret df (F.col (D.columnNames df !! 0))
+-- D.hasElemType @T.Text (unwrapTypedColumn c)
+-- D.columnNames df
+-- (either (error . show) id)
+txts = filter (\c -> interpret df (F.col c) |> either (show .> error) id |> unwrapTypedColumn |> D.hasElemType @T.Text) (D.columnNames df)
+-- txts
+
+-- couldn't quite get there with the count
+-- :t F.count . F.col <$> txts
+-- cs = unwrapTypedColumn . either (show .> error) id . interpret df . F.count . F.col <$> txts
+import DataFrame.Internal.DataFrame qualified as X
+import DataFrame.Internal.Column qualified as X
+import Data.Map.Strict qualified as Map
+-- :t fold countM
+cs = (\c -> X.unsafeGetColumn c df |> X.toList |> fold countM |> Map.toList) <$> txts :: [[((T.Text,Int))]]
+:t cs
+
+-- how do you solve this properly? arrows?
+xs = fmap fst <$> cs
+ys = fmap (fromIntegral . snd) <$> cs
+prop xs = (/ sum xs) <$> xs
+cs' = zipWith zip xs (fmap prop ys)
+pies = pie defaultPieOptions <$> cs'
+
+:t pies
+
+ch = stackCO 3 AlignMid AlignMid 0.1 pies
+disp ch
+#+end_src
+
+#+RESULTS:
+: cs :: [[(T.Text, Int)]]
+: pies :: [ChartOptions]
+: True
+
+#+begin_src haskell-ng :results output
+pies' = zipWith (\f p -> p |> over #hudOptions f) (addTitle PlaceBottom 0.1 <$> txts) pies
+ch' = stackCO 2 AlignMid AlignMid 0.1 (pies' |> fmap (set (#markupOptions % #chartAspect) (ChartAspect)))
+disp ch'
+rend "other/pies.svg" ch'
+
+#+end_src
+
+#+RESULTS:
+: True
+
+[[file:other/pies.svg]]
+
+** Pie (2)
+
+#+begin_src haskell-ng :results output
+-- example data from https://www.kaggle.com/competitions/playground-series-s5e11
+dfTest <- D.readCsv "other/s5e11/test.csv"
+v = F.col @Double "value"
+df0 = mempty |> D.insert "item" ["person","woman","man","camera","tv"] |> D.insert "value" [20,23.1,31,16,10]
+xs = D.columnAsList @Double "value" df0
+xs' = (/ sum xs) <$> xs
+df = D.insert "prop" xs' df0
+#+end_src
+
+#+RESULTS:
+
+
+feature set:
+
+- exploded. Tip of the secant is offset from the origin (eg all of them or individually for emphasis).
+- secants are bordered and styled.
+- donuts are secants with another chord cut out at the origin.
+- does it have to be a circle? How about a square and an origin point.
+- area represents size (as a percentage of sum).
+
+A pie chart is a type of 'size' chart where the size of a shape represents data magnitudes.
+
+#+begin_src haskell-ng :results output
+ls = T.pack <$> D.columnAsList @String "item" df
+vs = D.columnAsList @Double "prop" df
+co = pie defaultPieOptions (zip ls vs)
+disp co
+rend "other/pie.svg" co
+#+end_src
+
+#+RESULTS:
+
+[[file:other/pie.svg]]
+
+** boxPlot
+
+#+begin_src haskell-ng :results output
+c0 = D.columnAsList "interest_rate" df
+ch = boxPlot defaultBoxPlotOptions c0
+disp ch
+#+end_src
+
+#+RESULTS:
+: True
+
+[[file:other/box1.svg]]
+**** box plot construction
+
+A box plot is:
+
+- (maybe) a vertical tick at the min
+- a LineChart from min to q1
+- a RectChart from q1 to q2
+- a RectChart from q2 to q3
+- a LineChart q3 to max
+- (maybe) a vertical tick at the max
+
+#+begin_src haskell-ng :results output
+l1 = LineChart defaultLineStyle [[Point (q4s !! 0) 0.5, Point (q4s !! 1) 0.5]]
+l2 = LineChart defaultLineStyle [[Point (q4s !! 3) 0.5, Point (q4s !! 4) 0.5]]
+r1 = RectChart defaultRectStyle [Rect (q4s !! 1) (q4s !! 2) 0 1]
+r2 = RectChart defaultRectStyle [Rect (q4s !! 2) (q4s !! 3) 0 1]
+#+end_src
+
+**** vertical box plot constrcution
+
+#+begin_src haskell-ng :results output
+qs = q4s
+l1 = LineChart defaultLineStyle [[Point 0.5 (qs !! 0), Point 0.5 (qs !! 1)]]
+l2 = LineChart defaultLineStyle [[Point 0.5 (qs !! 3), Point 0.5 (qs !! 4)]]
+r1 = RectChart defaultRectStyle [Rect 0 1 (qs !! 1) (qs !! 2)]
+r2 = RectChart defaultRectStyle [Rect 0 1 (qs !! 2) (qs !! 3)]
+#+end_src
+
+** multiple boxPlots
+
+#+begin_src haskell-ng :results output
+import DataFrame.Internal.Expression (interpret)
+import DataFrame.Internal.Column (unwrapTypedColumn)
+
+df = dfTest
+:set -Wno-incomplete-uni-patterns
+(Right c) = interpret df (F.col (D.columnNames df !! 0))
+-- D.hasElemType @T.Text (unwrapTypedColumn c)
+-- D.columnNames df
+-- (either (error . show) id)
+dbls = filter (\c -> interpret df (F.col c) |> either (show .> error) id |> unwrapTypedColumn |> D.hasElemType @Double) (D.columnNames df)
+-- txts
+
+-- couldn't quite get there with the count
+-- :t F.count . F.col <$> txts
+-- cs = unwrapTypedColumn . either (show .> error) id . interpret df . F.count . F.col <$> txts
+import DataFrame.Internal.DataFrame qualified as X
+import DataFrame.Internal.Column qualified as X
+import Data.Map.Strict qualified as Map
+
+xss = (\c -> D.columnAsList @Double c df) <$> dbls
+cs = boxPlot defaultBoxPlotOptions <$> xss
+boxCharts = zipWith (\c t -> c |> over #hudOptions (addTitle PlaceBottom 0.03 t)) cs dbls
+c = horiCO AlignMid 0.1 boxCharts
+disp c
+#+end_src
+
+#+RESULTS:
+: True
+
+** stackedBar
+
+#+begin_src haskell-ng :results output
+ls = T.pack <$> D.columnAsList @String "item" df
+vs = D.columnAsList @Double "prop" df
+c = stackedBar (defaultStackedBarOptions |> set (#itemStyles % each % _1 % #color % opac') 0.4) "item" (zip ls vs)
+disp c
+#+end_src
+
+#+RESULTS:
+: True
+
+*** multiple stackedBar
+
+#+begin_src haskell-ng :results output
+import DataFrame.Internal.Expression (interpret)
+import DataFrame.Internal.Column (unwrapTypedColumn)
+
+df = dfTest
+:set -Wno-incomplete-uni-patterns
+(Right c) = interpret df (F.col (D.columnNames df !! 0))
+-- D.hasElemType @T.Text (unwrapTypedColumn c)
+-- D.columnNames df
+-- (either (error . show) id)
+txts = filter (\c -> interpret df (F.col c) |> either (show .> error) id |> unwrapTypedColumn |> D.hasElemType @T.Text) (D.columnNames df)
+-- txts
+
+-- couldn't quite get there with the count
+-- :t F.count . F.col <$> txts
+-- cs = unwrapTypedColumn . either (show .> error) id . interpret df . F.count . F.col <$> txts
+import DataFrame.Internal.DataFrame qualified as X
+import DataFrame.Internal.Column qualified as X
+import Data.Map.Strict qualified as Map
+-- :t fold countM
+cs = (\c -> X.unsafeGetColumn c df |> X.toList |> fold countM |> Map.toList) <$> txts :: [[((T.Text,Int))]]
+:t cs
+
+-- how do you solve this properly? arrows?
+xs = fmap fst <$> cs
+ys = fmap (fromIntegral . snd) <$> cs
+prop xs = (/ sum xs) <$> xs
+cs' = zipWith zip xs (fmap prop ys)
+-- sbars = stackedBar defaultStackedBarOptions <$> cs'
+stackedCharts = zipWith (\t cs -> stackedBar (defaultStackedBarOptions |> set (#itemStyles % each % _1 % #color % opac') 0.2) t cs) txts cs'
+c = horiCO AlignMid 0.1 stackedCharts
+
+disp c
+#+end_src
+
+#+RESULTS:
+: cs :: [[(T.Text, Int)]]
+: True
+
+*** onLoad
+
+#+begin_src haskell-ng :results output
+disp (horiCO AlignRight 0.1 (stackedCharts <> boxCharts))
+#+end_src
+
+#+RESULTS:
+: True
+
+
+** littleuns
+
+#+begin_src haskell-ng :results output
+p = [0..4]
+op = defaultPieOptions |> over (#secants % each % #pathStyle % #color % opac') (const 0.7)
+offSecant = defaultSecantOptions |> set (#pathStyle % #color % opac') 0.04 |> set (#textStyle % #color % opac') zero
+cs = fmap (\x -> piePlot (switchOffs x offSecant op) (zip ls vs)) (List.subsequences p)
+cts = cs |> fmap (view #chartTree)
+-- littleuns
+cts' = projectChartTree (fmap (0.06*) one) <$> cts
+
+-- random points
+xs <- replicateM (length cs) (uniformDouble01M g) :: IO [Double]
+ys <- replicateM (length cs) (uniformDouble01M g) :: IO [Double]
+ps = zipWith Point xs ys
+
+-- littleuns at random points
+cts'' = zipWith (\p ct -> over charts' (fmap (moveChart p)) ct) ps cts'
+
+-- littleuns with no text at random points
+noTextCt ct = mempty |> set #chartTree ct |> noText |> view #chartTree
+ct1 = noTextCt <$> cts''
+
+bl = named "blank" [BlankChart defaultStyle [Rect 0 1 0 1]]
+
+ct = ct1!!2 <> bl
+
+ho = defaultHudOptions |> set (#axes % each % #item % #ticks % #tick % tickExtend') (Just NoTickExtend) |> set (#axes % each % #item % #ticks % #tick) (TickPlaced [(0,"0"),(0.5,"0.5"),(1,"1")])
+
+disp (mempty |> set #hudOptions ho |> set (#markupOptions % #chartAspect) ChartAspect |> set #chartTree (mconcat $ bl:ct1))
+
+#+end_src
+
+#+RESULTS:
+: True
+
+** GlyphPath
+
+
+#+begin_src haskell-ng :results output
+h1 = PathChart defaultPathStyle (svgToPathData "M0 180.664l60.222-90.332L0 0h45.166l60.222 90.332-60.222 90.332H0z")
+h2 = PathChart defaultPathStyle (svgToPathData "M60.222 180.664l60.222-90.332L60.222 0h45.166L225.83 180.664h-45.166l-37.637-56.457-37.639 56.457H60.222z")
+h3 = PathChart defaultPathStyle (svgToPathData "M205.757 127.971l-20.072-30.11 70.257-.002v30.112h-50.185zM175.647 82.805l-20.074-30.11 100.369-.002v30.112h-80.295z")
+
+h1' = PathChart defaultPathStyle (svgToPathData "M0 180.664l60.222-90.332L0 0h45.166l60.222 90.332-60.222 90.332H0zM60.222 180.664l60.222-90.332L60.222 0h45.166L225.83 180.664h-45.166l-37.637-56.457-37.639 56.457H60.222z")
+
+hbs = "M0 180.664l60.222-90.332L0 0h45.166l60.222 90.332-60.222 90.332H0zM60.222 180.664l60.222-90.332L60.222 0h45.166L225.83 180.664h-45.166l-37.637-56.457-37.639 56.457H60.222z"
+
+disp <| (mempty |> set #chartTree (named "h1" ([h1'])))
+
+:t PathGlyph hbs
+
+gs = PathGlyph (svgToPathData hbs |> fmap (scalePath 0.01) |> pathDataToSvg)
+gs
+#+end_src
+
+#+RESULTS:
+: True
+: PathGlyph hbs :: GlyphShape
+: PathGlyph "M 0,1.8066 L 0,1.8066 L 0.6022,0.9033 L 0,0 L 0,0 L 0.4517,0 L 0.4517,0 L 1.0539,0.9033 L 0.4517,1.8066 L 0,1.8066 L 0,1.8066 M 0.6022,1.8066 L 0.6022,1.8066 L 1.2044,0.9033 L 0.6022,0 L 0.6022,0 L 1.0539,0 L 2.2583,1.8066 L 2.2583,1.8066 L 1.8066,1.8066 L 1.8066,1.8066 L 1.4303,1.2421 L 1.0539,1.8066 L 0.6022,1.8066 L 0.6022,1.8066"
+
+#+begin_src haskell-ng :results output
+<path d="M0 180.664l60.222-90.332L0 0h45.166l60.222 90.332-60.222 90.332H0z" fill="#F97E2F"/><path d="M60.222 180.664l60.222-90.332L60.222 0h45.166L225.83 180.664h-45.166l-37.637-56.457-37.639 56.457H60.222z" fill="#95653A"/><path d="M205.757 127.971l-20.072-30.11 70.257-.002v30.112h-50.185zM175.647 82.805l-20.074-30.11 100.369-.002v30.112h-80.295z" fill="#F97E2F"/></svg>
+#+end_src
+
+
+
+#+begin_src haskell-ng :results output
+(defaultTitleOptions mempty & set (#style % #size) 0.06 & set #place PlaceBottom) (defaultTitleOptions mempty & set (#style % #size) 0.06 & set #buffer 0.1 & set #place PlaceLeft)
+ho = defaultHudOptions & maybe id (\tx -> over #titles ((Priority 8 (view #titleX o & set #text tx)) :)) t0 & maybe id (\ty -> over #titles ((Priority 8 (view #titleY o & set #text ty)) :)) t1
+
+#+end_src
+
+#+begin_src haskell-ng :results output
+gs = PathGlyph (svgToPathData hbs |> fmap (scalePath 0.1) |> pathDataToSvg)
+color1 = Colour 0.976 0.494 0.184 0
+color2 = Colour 0.584 0.399 0.227 1
+
+xs = take 100 $ D.columnAsList "interest_rate" df
+ys = take 100 $ D.columnAsList "loan_amount" df
+ch = scatter (defaultScatterOptions |> set (#styles % each % #color % opac') 0.3 |> set (#styles % each % #borderColor % opac') 0.2 |> set (#styles % each % #size) 0.05 |> set (#styles % each % #glyphShape) CircleGlyph) xs ys
+ch' = scatter (defaultScatterOptions |> set (#styles % each % #color % opac') 0.1 |> over (#styles % each % #color) (rgb color1) |> set (#styles % each % #borderColor % opac') 0.5 |> set (#styles % each % #size) 0.03 |> set (#styles % each % #glyphShape) gs) xs ys
+chs = horiCO AlignMid 0.02 [ch', ch]
+rend "other/scatter-path.svg" chs
+disp chs
+
+#+end_src
+
+
+* Imports
 
 #+begin_src haskell-ng :results output
 :r
@@ -273,6 +539,7 @@ import System.Random.MWC.Distributions
 -- dev helpers
 import Perf
 import Flow
+import Data.Mealy
 
 -- dataframe chart-svg interface
 import DataFrame.Plot
@@ -293,506 +560,47 @@ rend = writeChartOptions
 
 #+end_src
 
-** Live charts
+#+RESULTS:
+#+begin_example
+Configuration is affected by the following files:
+- cabal.project
+Build profile: -w ghc-9.12.2 -O1
+In order, the following will be built (use -v for more details):
+ - dataframe-plot-0.1.0.0 (interactive) (lib) (configuration changed)
+Configuring library for dataframe-plot-0.1.0.0...
+Preprocessing library for dataframe-plot-0.1.0.0...
+GHCi, version 9.12.2: https://www.haskell.org/ghc/  :? for help
+[1 of 1] Compiling DataFrame.Plot   ( src/DataFrame/Plot.hs, interpreted )
+Ok, one module loaded.
+Ok, one module reloaded.
+#+end_example
+
+* Live charts
 
 This gives you a browser page and live charting capabilities.
 
 #+begin_src haskell-ng
 -- live charts
 (display, quit) <- startChartServer Nothing
-disp x = display $ x & set (#markupOptions % #markupHeight) (Just 250) & set (#hudOptions % #frames % ix 1 % #item % #buffer) 0.1
+disp x = display $ x & set (#markupOptions % #markupHeight) (Just 400) & set (#hudOptions % #frames % ix 1 % #item % #buffer) 0.1
 
 #+end_src
 
 #+RESULTS:
-: Setting phasergsh ctio>  stun... (port 9160)g h(ccit>r l-c to quit)
+: Setting phagshecris>  to stun... (port 9160) (ctrl-c to quit)
 
 http://localhost:9160/
 
 testing, testing; one, two, three
 
 #+begin_src haskell-ng
-disp unitExample
+disp lineExample
 #+end_src
 
 #+RESULTS:
 : True
 
-** dfTest
-** dataframe check
-
-#+begin_src haskell-ng :results output
-df = dfTest
-D.describeColumns df
-D.summarize df
-#+end_src
-
-#+RESULTS:
-#+begin_example
------------------------------------------------------------------
-    Column Name      | # Non-null Values | # Null Values |  Type
----------------------|-------------------|---------------|-------
-        Text         |        Int        |      Int      |  Text
----------------------|-------------------|---------------|-------
-grade_subgrade       | 254569            | 0             | Text
-loan_purpose         | 254569            | 0             | Text
-employment_status    | 254569            | 0             | Text
-education_level      | 254569            | 0             | Text
-marital_status       | 254569            | 0             | Text
-gender               | 254569            | 0             | Text
-interest_rate        | 254569            | 0             | Double
-loan_amount          | 254569            | 0             | Double
-credit_score         | 254569            | 0             | Int
-debt_to_income_ratio | 254569            | 0             | Double
-annual_income        | 254569            | 0             | Double
-id                   | 254569            | 0             | Int
---------------------------------------------------------------------------------------------------------
-Statistic |    id    | annual_income | debt_to_income_ratio | credit_score | loan_amount | interest_rate
-----------|----------|---------------|----------------------|--------------|-------------|--------------
-  Text    |  Double  |    Double     |        Double        |    Double    |   Double    |    Double
-----------|----------|---------------|----------------------|--------------|-------------|--------------
-Count     | 254569.0 | 254569.0      | 254569.0             | 254569.0     | 254569.0    | 254569.0
-Mean      | 721278.0 | 48233.08      | 0.12                 | 681.04       | 15016.75    | 12.35
-Minimum   | 593994.0 | 6011.77       | 1.0e-2               | 395.0        | 500.05      | 3.2
-25%       | 657636.0 | 27950.3       | 7.0e-2               | 646.0        | 10248.58    | 10.98
-Median    | 721278.0 | 46528.98      | 0.1                  | 683.0        | 15000.22    | 12.37
-75%       | 784920.0 | 61149.44      | 0.16                 | 719.0        | 18831.46    | 13.69
-Max       | 848562.0 | 380653.94     | 0.63                 | 849.0        | 48959.26    | 21.29
-StdDev    | 73487.88 | 26719.66      | 7.0e-2               | 55.62        | 6922.17     | 2.02
-IQR       | 127284.0 | 33199.14      | 8.0e-2               | 73.0         | 8582.88     | 2.71
-Skewness  | 0.0      | 1.72          | 1.42                 | -0.17        | 0.21        | 4.0e-2
-#+end_example
-
-** onLoad
-
-#+begin_src haskell-ng :results output
-c = (either (error . show) id) (D.columnAsDoubleVector "interest_rate" df)
-:t c
-q4s = VU.toList $ D.quantiles' (VU.fromList [0,1,2,3,4]) 4 c
-:t q4s
-q4s
-#+end_src
-
-#+RESULTS:
-: c :: VU.Vector Double
-: q4s :: [Double]
-: [3.2,10.98,12.37,13.69,21.29]
-
-** df
-** piePlot
-
-feature set:
-
-- exploded. Tip of the secant is offset from the origin (eg all of them or individually for emphasis).
-- secants are bordered and styled.
-- donuts are secants with another chord cut out at the origin.
-- does it have to be a circle? How about a square and an origin point.
-- area represents size (as a percentage of sum).
-
-A pie chart is a type of 'size' chart where the size of a shape represents data magnitudes.
-
-*** workings
-Pie chart convention starts at the y-axis and lays out secant slices clockwise.
-
-~ra~ maps (0,1) (the proportional pie slice) into a point on a unit circle (by this convetion).
-
-#+begin_src haskell-ng :results output
-ra = (+(-0.25)) .> (*(-2 * pi)) .> ray @(Point Double)
-secantPie (Secant o r a0 a1) = singletonPie o (ArcPosition (o N.+ ra a0) (o N.+ ra a1) (ArcInfo (Point r r) 0 False True))
-#+end_src
-
-#+RESULTS:
-
-This is a very common scan for a Column.
-
-#+begin_src haskell-ng
--- :file other/pie.svg :results output graphics file :exports both
-ls = T.pack <$> D.columnAsList @String "item" df
-vs = D.columnAsList @Double "prop" df
-
-acc0 = List.scanl' (+) 0 vs <> [1]
-mids = zipWith (\a0 a1 -> (a0+a1)/2) acc0 (List.drop 1 acc0)
-
-xs = zipWith (\a0 a1 -> secantPie (Secant (0.05 N.*| ra ((a0+a1)/2)) one a0 a1)) acc0 (List.drop 1 acc0)
-
-cs = zipWith (\c x -> PathChart (defaultPathStyle |> set #borderSize 0 |> set #color (paletteO c 0.3)) x) [0..] xs
-
-ct = zipWith (\c (t,a) -> TextChart (defaultTextStyle |> set #size 0.05 |> set #color (palette c & over lightness' (*0.6))) [(t, 0.7 N.*| ra a)]) [0..] (zip ls mids)
-co = (mempty :: ChartOptions) & set (#markupOptions % #chartAspect) ChartAspect & set #chartTree ((cs <> ct) |> unnamed)
-disp co
-writeChartOptions "other/pie.svg" co
-#+end_src
-
-#+RESULTS:
-: True
-
-
-[[file:other/pie.svg]]
-
-#+begin_src haskell-ng :results output
-ls = T.pack <$> D.columnAsList @String "item" df
-vs = D.columnAsList @Double "prop" df
-disp $ piePlot (defaultPiePlotOptions |> over (#secants % each % #pathStyle % #color % lightness') (\x -> min (1 - x) 0.4) |> over (#secants % each % #textStyle % #color % lightness') (\x -> max (1 - x) 0.6)) (zip ls vs)
-#+end_src
-
-#+RESULTS:
-: True
-
-#+begin_src haskell-ng :results output
-:t defaultPiePlotOptions |> over (#secants % each % #pathStyle % #color % lightness') (\x -> 1 - x)
-#+end_src
-
-#+RESULTS:
-: defaultPiePlotOptions |> over (#secants % each % #pathStyle % #color % lightness') (\x -> 1 - x)
-:   :: PiePlotOptions
-
-*** piePlot
-
-#+begin_src haskell-ng :results output
-ls = T.pack <$> D.columnAsList @String "item" df
-vs = D.columnAsList @Double "prop" df
-disp ((piePlot (defaultPiePlotOptions |> over (#secants % each % #textStyle % #color % lightness') (min 0.4)) (zip ls vs)) |> set #hudOptions defaultHudOptions)
-#+end_src
-
-#+RESULTS:
-: True
-
-**** dark version test
-
-#+begin_src haskell-ng :results output
-disp $ piePlot (defaultPiePlotOptions |> over (#secants % each % #pathStyle % #color % lightness') (\x -> min (1 - x) 0.4) |> over (#secants % each % #textStyle % #color % lightness') (\x -> max (1 - x) 0.6)) (zip ls vs)
-#+end_src
-
-**** littleuns
-
-#+begin_src haskell-ng :results output
-op
-#+end_src
-
-#+RESULTS:
-: Suggested fix:
-:       Perhaps use one of these:
-:         ‘Lens.op’ (imported from Control.Lens),
-:         ‘Ghci51.p’ (imported from Ghci51),
-:         ‘Ghci66.p’ (imported from Ghci66)
-
-#+begin_src haskell-ng :results output
-p = [0..4]
-op = defaultPiePlotOptions |> over (#secants % each % #pathStyle % #color % opac') (const 0.7)
-offSecant = defaultSecantOptions |> set (#pathStyle % #color % opac') 0.04 |> set (#textStyle % #color % opac') zero
-cs = fmap (\x -> piePlot (switchOffs x offSecant op) (zip ls vs)) (List.subsequences p)
-cts = cs |> fmap (view #chartTree)
--- littleuns
-cts' = projectChartTree (fmap (0.06*) one) <$> cts
-
-
--- random points
-xs <- replicateM (length cs) (uniformDouble01M g) :: IO [Double]
-ys <- replicateM (length cs) (uniformDouble01M g) :: IO [Double]
-ps = zipWith Point xs ys
-
--- littleuns at random points
-cts'' = zipWith (\p ct -> over charts' (fmap (moveChart p)) ct) ps cts'
-
--- littleuns with no text at random points
-noTextCt ct = mempty |> set #chartTree ct |> noText |> view #chartTree
-ct1 = noTextCt <$> cts''
-
-bl = named "blank" [BlankChart defaultStyle [Rect 0 1 0 1]]
-
-ct = ct1!!2 <> bl
-
-ho = defaultHudOptions |> set (#axes % each % #item % #ticks % #tick % tickExtend') (Just NoTickExtend) |> set (#axes % each % #item % #ticks % #tick) (TickPlaced [(0,"0"),(0.5,"0.5"),(1,"1")])
-
-disp (mempty |> set #hudOptions ho |> set (#markupOptions % #chartAspect) ChartAspect |> set #chartTree (mconcat $ bl:ct1))
-
-#+end_src
-
-#+RESULTS:
-: True
-
-** histPlot example
-
-#+begin_src haskell-ng :results output
-c0 = (either (error . show) id) (D.columnAsDoubleVector "interest_rate" df)
--- ch = boxPlot defaultBoxPlotOptions c0
--- writeChartOptions "other/box1.svg" ch
--- disp ch
-VU.length c0
-#+end_src
-
-#+RESULTS:
-: 254569
-
-#+begin_src haskell-ng :results output
-grain = 10
-r = N.unsafeSpace1 $ VU.toList c0 :: (Range Double)
-hcuts = N.gridSensible N.OuterPos False r grain
-h = N.fill hcuts (VU.toList c0)
-rects = filter (\(Rect _ _ _ y') -> y' /= 0) $ N.makeRects (N.IncludeOvers (N.width r / fromIntegral grain)) h
-h = named "histogram" [RectChart (defaultRectStyle |> set #color (paletteO 2 0.2) |> set #borderColor (paletteO 2 1)) rects]
-
-disp <| (mempty |> set #chartTree h |> set #hudOptions (mempty |> set #axes [Priority 5 (defaultXAxisOptions |> set (#ticks % #lineTick) Nothing)] |> set #titles [ (defaultTitleOptions "interest_rate" |> set #place PlaceBottom |> set (#style % #size) 0.08 |> set (#style % #color) (paletteO 2 1) |> Priority 8)]))
-
-#+end_src
-
-#+RESULTS:
-: True
-
-#+begin_src haskell-ng :file other/hist.svg :results output graphics file :exports both
-h = histPlot defaultHistPlotOptions (Just "interest_rate", c0)
-disp h
-writeChartOptions "other/hist.svg" h
-#+end_src
-
-
-
-#+RESULTS:
-[[file:other/hist.svg]]
-
-#+begin_src haskell-ng :results output
-
-e = "annual_income"
-c = (either (error . show) id) (D.columnAsDoubleVector e df)
-h = histPlot defaultHistPlotOptions (Just e, c)
-disp h
-#+end_src
-
-#+RESULTS:
-: True
-: ob-haskell-ng-eoe
-
-** boxPlot example
-
-#+begin_src haskell-ng :results output
-c0 = (either (error . show) id) (D.columnAsDoubleVector "interest_rate" df)
-ch = boxPlot defaultBoxPlotOptions c0
-writeChartOptions "other/box1.svg" ch
-disp ch
-#+end_src
-
-#+RESULTS:
-: True
-
-[[file:other/box1.svg]]
-
-** scatterPlot example
-
-
-#+RESULTS:
-: True
-
-#+begin_src haskell-ng :results output
-c0 = (either (error . show) id) (D.columnAsDoubleVector "interest_rate" df)
-c1 = (either (error . show) id) (D.columnAsDoubleVector "loan_amount" df)
-
-ch = GlyphChart defaultGlyphStyle (Prelude.take 1000 $ zipWith Point (VU.toList c0) (VU.toList c1))
-
-ch' = (mempty :: ChartOptions) & set #chartTree (named "scatterPlot" [ch]) & set #hudOptions defaultHudOptions & set (#hudOptions % #titles) [(Priority 8 (defaultTitleOptions "interest_rate" & set #place PlaceBottom & set (#style % #size) 0.06)),(Priority 8 (defaultTitleOptions "loan_amount" & set #place PlaceLeft & set (#style % #size) 0.06 & set #buffer 0.1))]
-
-writeChartOptions "other/scatter1.svg" ch'
-disp ch'
-#+end_src
-
-#+RESULTS:
-: True
-
-
-Using MData.scatterPlot
-
-#+begin_src haskell-ng :results output
-v0 = (either (error . show) id) (D.columnAsDoubleVector "interest_rate" df)
-v1 = (either (error . show) id) (D.columnAsDoubleVector "loan_amount" df)
-ch = scatterPlot defaultScatterPlotOptions (Just "interest_rate", v0) (Just "loan_amount", v1)
-
-writeChartOptions "other/scatter1.svg" ch
-disp ch
-#+end_src
-
-#+RESULTS:
-: True
-
-[[file:other/scatter1.svg]]
-
-** initial build
-
-#+begin_src sh :results output
-cabal init  --non-interactive mdata -d "base,dataframe,perf,chart-svg,prettychart,vector"
-#+end_src
-
-** more chart-dev
-*** dataframe creation
-**** direct method
-
-#+begin_src haskell-ng :results output :exports both
-df0 = mempty |> D.insert "item" ["person","woman","man","camera","tv"] |> D.insert "value" [20,23.1,31,16,10]
-v = F.col @Double "value"
-xs = D.columnAsList @Double "value" df0
-xs' = (/ sum xs) <$> xs
-df = D.insert "prop" xs' df0
-df
-#+end_src
-
-#+RESULTS:
-#+begin_example
--------------------------------------
- item  | value  |        prop
--------|--------|--------------------
-[Char] | Double |       Double
--------|--------|--------------------
-person | 20.0   | 0.1998001998001998
-woman  | 23.1   | 0.2307692307692308
-man    | 31.0   | 0.3096903096903097
-camera | 16.0   | 0.15984015984015984
-tv     | 10.0   | 9.99000999000999e-2
-#+end_example
-
-**** expr method
-
-#+begin_src haskell-ng :results output :exports both
-df0 = mempty |> D.insert "item" ["person","woman","man","camera","tv"] |> D.insert "value" [20,23.1,31,16,10]
-v = F.col @Double "value"
-prop e = e / F.sum e
-df = D.derive "prop" (prop v) df0
-df
-#+end_src
-
-#+RESULTS:
-#+begin_example
---------------------------------------
- item  | value  |         prop
--------|--------|---------------------
-[Char] | Double |        Double
--- . show) id) (D.columnAsDoubleVector e df)
------|--------|---------------------
-person | 20.0   | 0.16652789342214822
-woman  | 23.1   | 0.1923397169025812
-man    | 31.0   | 0.2581182348043297
-camera | 16.0   | 0.13322231473771856
-tv     | 10.0   | 8.326394671107411e-2
-#+end_example
-
-**** F.sum bug?
-
-#+begin_src haskell-ng :results output :exports both
-df0 = mempty |> D.insert "value" [20,23.1,31,16,10]
-v = F.col @Double "value"
-df = D.derive "sum" (F.sum v) df0
-df
-#+end_src
-
-#+RESULTS:
-#+begin_example
----------------
-value  |  sum
--------|-------
-Double | Double
--------|-------
-20.0   | 120.1
-23.1   | 120.1
-31.0   | 120.1
-16.0   | 120.1
-10.0   | 120.1
-#+end_example
-
-*** stacked bar
-
-**** version 1: single stacked vertical bar chart
-
-#+begin_src haskell-ng :results output :exports both
-ls = T.pack <$> D.columnAsList @String "item" df
-vs = D.columnAsList @Double "prop" df
-bd = BarData (fmap pure vs) ["item"] ls
-bd
-#+end_src
-
-#+RESULTS:
-: BarData {barData = [[0.16652789342214822],[0.1923397169025812],[0.2581182348043297],[0.13322231473771856],[8.326394671107411e-2]], barRowLabels = ["item"], barColumnLabels = ["person","woman","man","camera","tv"]}
-
-#+begin_src haskell-ng :file other/bar1.svg :results output graphics file :exports both
-bc = barChart (defaultBarOptions |> set #displayValues False |> set #barStacked Stacked |> set (#barRectStyles % each % #borderSize) 0) bd
-disp bc
-writeChartOptions "other/bar1.svg" bc
-#+end_src
-
-#+RESULTS:
-[[file:other/bar1.svg]]
-
-**** version 2: skinny
-
-#+begin_src haskell-ng :file other/bar2.svg :results output graphics file :exports both
-bc' = Lens.transformOnOf Lens.template Lens.uniplate (over chroma' (*1.5) .> over opac' (*0.6)) bc |> set (#markupOptions % #chartAspect) (FixedAspect 0.4)
-
-disp (bc')
-writeChartOptions "other/bar2.svg" bc'
-#+end_src
-
-#+RESULTS:
-[[file:other/bar2.svg]]
-
-**** version 3: remove legend and embed labels
-
-#+begin_src haskell-ng :file other/bar3.svg :results output graphics file :exports both
-
-acc0 = List.scanl' (+) 0 vs <> [1]
-mids = zipWith (\a0 a1 -> (a0+a1)/2) acc0 (List.drop 1 acc0)
-ct = zipWith (\c (t,a) -> TextChart (defaultTextStyle |> set #size 0.05 |> set #color (palette c |> over lightness' (*0.6))) [(t, Point zero (0.5-a))]) [0..] (zip ls mids)
-
-bc'' = bc' |> set (#hudOptions % #legends) mempty |> over #chartTree (<> named "labels" ct)
-
-disp (bc'')
-writeChartOptions "other/bar3.svg" bc''
-
-#+end_src
-
-#+RESULTS:
-[[file:other/bar3.svg]]
-
-*** pie secants
-
-Pie chart convention starts at the y-axis and lays out secant slices clockwise.
-
-~ra~ maps (0,1) (the proportional pie slice) into a point on a unit circle (by this convetion).
-
-#+begin_src haskell-ng :results output
-ra = (+(-0.25)) .> (*(-2 * pi)) .> ray @(Point Double)
-secantPie (Secant o r a0 a1) = singletonPie o (ArcPosition (o N.+ ra a0) (o N.+ ra a1) (ArcInfo (Point r r) 0 False True))
-#+end_src
-
-#+RESULTS:
-
-This is a very common scan for a Column.
-
-#+begin_src haskell-ng
--- :file other/pie.svg :results output graphics file :exports both
-ls = T.pack <$> D.columnAsList @String "item" df
-vs = D.columnAsList @Double "prop" df
-acc0 = List.scanl' (+) 0 vs <> [1]
-mids = zipWith (\a0 a1 -> (a0+a1)/2) acc0 (List.drop 1 acc0)
-
-xs = zipWith (\a0 a1 -> secantPie (Secant (0.05 N.*| ra ((a0+a1)/2)) one a0 a1)) acc0 (List.drop 1 acc0)
-
-cs = zipWith (\c x -> PathChart (defaultPathStyle |> set #borderSize 0 |> set #color (paletteO c 0.3)) x) [0..] xs
-
-ct = zipWith (\c (t,a) -> TextChart (defaultTextStyle |> set #size 0.05 |> set #color (palette c & over lightness' (*0.6))) [(t, 0.7 N.*| ra a)]) [0..] (zip ls mids)
-co = (mempty :: ChartOptions) & set (#markupOptions % #chartAspect) ChartAspect & set #chartTree ((cs <> ct) |> unnamed)
-disp co
-writeChartOptions "other/pie.svg" co
-#+end_src
-
-#+RESULTS:
-: True
-
-
-[[file:other/pie.svg]]
-
-**** piePlot
-
-#+begin_src haskell-ng :results output
-ls = T.pack <$> D.columnAsList @String "item" df
-vs = D.columnAsList @Double "prop" df
-disp $ piePlot defaultPiePlotOptions (zip ls vs)
-#+end_src
+* perf
 
 *** file read testing
 
@@ -844,67 +652,6 @@ q4s
 : q4s :: [Double]
 : [3.2,10.98,12.37,13.69,21.29]
 
-*** box plot constructor
-
-A box plot is:
-
-- (maybe) a vertical tick at the min
-- a LineChart from min to q1
-- a RectChart from q1 to q2
-- a RectChart from q2 to q3
-- a LineChart q3 to max
-- (maybe) a vertical tick at the max
-
-#+begin_src haskell-ng :results output
-l1 = LineChart defaultLineStyle [[Point (q4s !! 0) 0.5, Point (q4s !! 1) 0.5]]
-l2 = LineChart defaultLineStyle [[Point (q4s !! 3) 0.5, Point (q4s !! 4) 0.5]]
-r1 = RectChart defaultRectStyle [Rect (q4s !! 1) (q4s !! 2) 0 1]
-r2 = RectChart defaultRectStyle [Rect (q4s !! 2) (q4s !! 3) 0 1]
-#+end_src
-
-#+RESULTS:
-
-#+begin_src haskell-ng :results output
-c = (mempty :: ChartOptions) & set #hudOptions defaultHudOptions & set #chartTree (unnamed [l1,r1,r2,l2])
-#+end_src
-
-#+RESULTS:
-
-#+begin_src haskell-ng :results output
-disp c
-#+end_src
-
-#+RESULTS:
-: True
-
-#+begin_src haskell-ng :results output
-writeChartOptions "other/c.svg" c
-#+end_src
-
-#+RESULTS:
-
-[[file:other/c.svg]]
-
-*** vertical version
-
-#+begin_src haskell-ng :results output
-qs = q4s
-l1 = LineChart defaultLineStyle [[Point 0.5 (qs !! 0), Point 0.5 (qs !! 1)]]
-l2 = LineChart defaultLineStyle [[Point 0.5 (qs !! 3), Point 0.5 (qs !! 4)]]
-r1 = RectChart defaultRectStyle [Rect 0 1 (qs !! 1) (qs !! 2)]
-r2 = RectChart defaultRectStyle [Rect 0 1 (qs !! 2) (qs !! 3)]
-#+end_src
-
-#+RESULTS:
-
-#+begin_src haskell-ng :results output
-c = (mempty :: ChartOptions) & set (#markupOptions % #chartAspect) (FixedAspect 0.25) & set #hudOptions defaultHudOptions & over (#hudOptions % #axes) (Prelude.drop 1) & set #chartTree (named "boxplot" [l1,r1,r2,l2])
-disp c
-#+end_src
-
-#+RESULTS:
-: True
-
 * reference
 
 Comparable python:
@@ -927,4 +674,6 @@ chart-svg api tree
 
 https://hackage-content.haskell.org/package/chart-svg-0.8.2.1/docs/other/ast.svg
 
+seaborn color palettes
 
+https://seaborn.pydata.org/generated/seaborn.color_palette.html
