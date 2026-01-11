@@ -11,7 +11,213 @@ Charts for dataframes built with chart-svg.
 - write `D.plot df`
   - Using dataframe metadata for default axis titles
 
-* Next Examples
+* Imports
+
+#+begin_src haskell-ng :results output
+:r
+
+:set -XNoImplicitPrelude
+:set -XImportQualifiedPost
+:set -Wno-type-defaults
+:set -Wno-name-shadowing
+:set -XOverloadedLabels
+:set -XOverloadedStrings
+:set -XTupleSections
+:set -XQuasiQuotes
+
+-- base, text & bytestring encoding (compatability check, also)
+import Prelude as P
+import NumHask.Prelude qualified as N
+import NumHask.Space qualified as N
+import Control.Category ((>>>))
+import Data.Function
+import Data.Maybe
+import Data.Bool
+import Data.List qualified as List
+import Control.Monad
+import Data.Bifunctor
+import Data.ByteString.Char8 qualified as C
+import Data.Text qualified as T
+
+-- prettyprinter (dev help)
+import Prettyprinter
+
+-- common dataframe imports
+import DataFrame qualified as D
+import DataFrame.Functions qualified as F
+import DataFrame.Internal.Column qualified as D
+import DataFrame.Internal.Expression qualified as D
+import DataFrame.Internal.Statistics qualified as D
+import qualified Data.Vector.Algorithms.Intro as VA
+import qualified Data.Vector.Unboxed as VU
+import qualified Data.Vector.Unboxed.Mutable as VUM
+import DataFrame.Synthesis qualified as S
+
+-- common chart-svg imports
+import Chart
+import Prettychart
+import Chart.Examples
+import Optics.Core hiding ((|>),(<|))
+import Control.Lens qualified as Lens
+import Data.Data.Lens qualified as Lens
+
+-- random variates
+import System.Random.Stateful
+import System.Random.MWC
+import System.Random.MWC.Distributions
+
+-- dev helpers
+import Perf
+import Flow
+import Data.FormatN
+import Data.Mealy
+import Data.Mealy.Simulate
+
+-- dataframe chart-svg interface
+import DataFrame.Plot
+
+-- example data from https://www.kaggle.com/competitions/playground-series-s5e11
+dfTest <- D.readCsv "other/s5e11/test.csv"
+v = F.col @Double "value"
+df0 = mempty |> D.insert "item" ["person","woman","man","camera","tv"] |> D.insert "value" [20,23.1,31,16,10]
+xs = D.columnAsList v df0
+xs' = (/ sum xs) <$> xs
+df = D.insert "prop" xs' df0
+
+-- initialize a random seed
+-- uniformRM (0,1) g :: IO Double
+g <- initialize $ VU.fromList [1,2,3]
+
+rend = writeChartOptions
+
+#+end_src
+
+#+RESULTS:
+#+begin_example
+Configuration is affected by the following files:
+- cabal.project
+Build profile: -w ghc-9.12.2 -O1
+In order, the following will be built (use -v for more details):
+ - dataframe-plot-0.1.0.0 (interactive) (lib) (configuration changed)
+Configuring library for dataframe-plot-0.1.0.0...
+Preprocessing library for dataframe-plot-0.1.0.0...
+GHCi, version 9.12.2: https://www.haskell.org/ghc/  :? for help
+[1 of 1] Compiling DataFrame.Plot   ( src/DataFrame/Plot.hs, interpreted )
+Ok, one module loaded.
+Ok, one module reloaded.
+#+end_example
+
+* Live charts
+
+This gives you a browser page and live charting capabilities.
+
+#+begin_src haskell-ng
+-- live charts
+(display, quit) <- startChartServer Nothing
+disp x = display $ x & set (#markupOptions % #markupHeight) (Just 400) & set (#hudOptions % #frames % ix 1 % #item % #buffer) 0.1
+
+#+end_src
+
+#+RESULTS:
+: Setting phasers to gshtcuin>. .. (port 9160) (ctrl-c tog hqcuii>t )
+
+http://localhost:9160/
+
+testing, testing; one, two, three
+
+#+begin_src haskell-ng
+disp lineExample
+#+end_src
+
+#+RESULTS:
+: True
+
+* linRegress
+
+#+begin_src haskell-ng :results output
+beamSearch ::
+    DataFrame ->
+    -- | Parameters of the beam search.
+    BeamConfig ->
+    -- | Examples
+    TypedColumn Double ->
+    -- | Constants
+    [Expr Double] ->
+    -- | Conditions
+    [Expr Bool] ->
+    -- | Programs
+    [Expr Double] ->
+    Maybe (Expr Double)
+
+
+#+end_src
+
+** notes
+
+- single pop not batch
+- MeanSquaredError in config
+
+*** loop
+
+#+begin_src haskell-ng :results output
+import Data.Mealy.Simulate
+:t rvsp
+#+end_src
+
+#+RESULTS:
+: rvsp :: Gen RealWorld -> Int -> Double -> IO [(Double, Double)]
+
+8 secs
+
+#+begin_src haskell-ng :results output
+rvs <- rvsp g 1000 0.7
+xs = fmap ((0.2 +) . (0.2 *). fst) rvs
+ys = zipWith (+) (fmap (2*) <| zipWith (*) xs xs) (fmap snd rvs)
+df = mempty |> D.insert "x" xs |> D.insert "y" ys
+D.correlation "x" "y" df
+target = "y"
+tc c = either (error . show) id (D.interpret df (F.col c))
+targetMean = D.mean (F.col @Double target) df
+constants = S.percentiles (D.exclude [target] df) ++ [D.Lit 10, D.Lit 1, D.Lit 0.1, D.Lit targetMean]
+run = S.beamSearch (D.exclude [target] df) (S.BeamConfig 3 100 S.MeanSquaredError True) (tc target) constants [] []
+run
+#+end_src
+
+#+RESULTS:
+: Just 0.7590111100680493
+: Best loss: Just (Just (-0.9044022591133772)) Just (col @Double "x")
+: Best loss: Just (Just (-0.7453602422628713)) Just (mult (lit (2.0)) (col @Double "x"))
+: Best loss: Just (Just (-0.5258084000808123)) Just (divide (sub (col @Double "x") (lit (0.1927546639480596))) (lit (0.21381376000000007)))
+: Just (divide (sub (col @Double "x") (lit (0.1927546639480596))) (lit (0.21381376000000007)))
+
+#+begin_src haskell-ng :results output
+:set -Wno-incomplete-uni-patterns
+(Just e) = run
+e
+putStrLn (S.prettyI e)
+#+end_src
+
+#+RESULTS:
+: (divide (sub (col @Double "x") (lit (0.1927546639480596))) (lit (0.21381376000000007)))
+: ((x - 0.193) / 0.214)
+
+#+begin_src haskell-ng :results output
+(show . typeOf . D.Lit @Double $ 1.2)
+#+end_src
+
+#+RESULTS:
+: "Expr Double"
+
+#+begin_src haskell-ng :results output
+import Text.Read
+:t readMaybe
+#+end_src
+
+#+RESULTS:
+: readMaybe :: Read a => String -> Maybe a
+
+
+* Examples
 
 ** Histogram
 
@@ -481,124 +687,6 @@ rend "other/scatter-path.svg" chs
 disp chs
 
 #+end_src
-
-
-* Imports
-
-#+begin_src haskell-ng :results output
-:r
-
-:set -XNoImplicitPrelude
-:set -XImportQualifiedPost
-:set -Wno-type-defaults
-:set -Wno-name-shadowing
-:set -XOverloadedLabels
-:set -XOverloadedStrings
-:set -XTupleSections
-:set -XQuasiQuotes
-
--- base, text & bytestring encoding (compatability check, also)
-import Prelude as P
-import NumHask.Prelude qualified as N
-import NumHask.Space qualified as N
-import Control.Category ((>>>))
-import Data.Function
-import Data.Maybe
-import Data.Bool
-import Data.List qualified as List
-import Control.Monad
-import Data.Bifunctor
-import Data.ByteString.Char8 qualified as C
-import Data.Text qualified as T
-
--- prettyprinter (dev help)
-import Prettyprinter
-
--- common dataframe imports
-import DataFrame qualified as D
-import DataFrame.Functions qualified as F
-import DataFrame.Internal.Expression qualified as D
-import DataFrame.Internal.Statistics qualified as D
-import qualified Data.Vector.Algorithms.Intro as VA
-import qualified Data.Vector.Unboxed as VU
-import qualified Data.Vector.Unboxed.Mutable as VUM
-
--- common chart-svg imports
-import Chart
-import Prettychart
-import Chart.Examples
-import Optics.Core hiding ((|>),(<|))
-import Control.Lens qualified as Lens
-import Data.Data.Lens qualified as Lens
-
--- random variates
-import System.Random.Stateful
-import System.Random.MWC
-import System.Random.MWC.Distributions
-
--- dev helpers
-import Perf
-import Flow
-import Data.Mealy
-
--- dataframe chart-svg interface
-import DataFrame.Plot
-
--- example data from https://www.kaggle.com/competitions/playground-series-s5e11
-dfTest <- D.readCsv "other/s5e11/test.csv"
-v = F.col @Double "value"
-df0 = mempty |> D.insert "item" ["person","woman","man","camera","tv"] |> D.insert "value" [20,23.1,31,16,10]
-xs = D.columnAsList @Double "value" df0
-xs' = (/ sum xs) <$> xs
-df = D.insert "prop" xs' df0
-
--- initialize a random seed
--- uniformRM (0,1) g :: IO Double
-g <- initialize $ VU.fromList [1,2,3]
-
-rend = writeChartOptions
-
-#+end_src
-
-#+RESULTS:
-#+begin_example
-Configuration is affected by the following files:
-- cabal.project
-Build profile: -w ghc-9.12.2 -O1
-In order, the following will be built (use -v for more details):
- - dataframe-plot-0.1.0.0 (interactive) (lib) (configuration changed)
-Configuring library for dataframe-plot-0.1.0.0...
-Preprocessing library for dataframe-plot-0.1.0.0...
-GHCi, version 9.12.2: https://www.haskell.org/ghc/  :? for help
-[1 of 1] Compiling DataFrame.Plot   ( src/DataFrame/Plot.hs, interpreted )
-Ok, one module loaded.
-Ok, one module reloaded.
-#+end_example
-
-* Live charts
-
-This gives you a browser page and live charting capabilities.
-
-#+begin_src haskell-ng
--- live charts
-(display, quit) <- startChartServer Nothing
-disp x = display $ x & set (#markupOptions % #markupHeight) (Just 400) & set (#hudOptions % #frames % ix 1 % #item % #buffer) 0.1
-
-#+end_src
-
-#+RESULTS:
-: Setting phagshecris>  to stun... (port 9160) (ctrl-c to quit)
-
-http://localhost:9160/
-
-testing, testing; one, two, three
-
-#+begin_src haskell-ng
-disp lineExample
-#+end_src
-
-#+RESULTS:
-: True
 
 * perf
 

@@ -1,3 +1,10 @@
-packages: dataframe-plot.cabal
+packages:
+  dataframe-plot.cabal
+  ../dataframe/dataframe.cabal
+
+-- source-repository-package
+--   type: git
+--   branch: main
+--   location: https://github.com/mchav/dataframe.git
 
 write-ghc-environment-files: always

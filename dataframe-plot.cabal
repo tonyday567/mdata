@@ -113,5 +113,6 @@ library
     random,
     mwc-random,
     mealy,
+    formatn,
   exposed-modules:
     DataFrame.Plot

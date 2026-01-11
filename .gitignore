@@ -4,3 +4,4 @@
 /.ipynb_checkpoints/
 /.devcontainer/
 /other/s5e11
+.ghc.environment.*
