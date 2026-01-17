@@ -1,10 +1,21 @@
 packages:
   dataframe-plot.cabal
-  ../dataframe/dataframe.cabal
+  ../prettychart/prettychart.cabal
 
--- source-repository-package
---   type: git
---   branch: main
---   location: https://github.com/mchav/dataframe.git
+source-repository-package
+  type: git
+  branch: main
+  location: https://github.com/mchav/dataframe.git
 
 write-ghc-environment-files: always
+
+allow-newer:
+  bytestring-lexing:base,
+  dataframe:base,
+  aeson:template-haskell,
+  aeson:ghc-prim,
+  aeson:bytestring,
+  aeson:base,
+  *:base,
+  *:template-haskell,
+  aeson:uuid-types

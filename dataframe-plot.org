@@ -531,7 +531,6 @@ xss = (\c -> D.columnAsList @Double c df) <$> dbls
 cs = boxPlot defaultBoxPlotOptions <$> xss
 boxCharts = zipWith (\c t -> c |> over #hudOptions (addTitle PlaceBottom 0.03 t)) cs dbls
 c = horiCO AlignMid 0.1 boxCharts
-disp c
 #+end_src
 
 #+RESULTS:
