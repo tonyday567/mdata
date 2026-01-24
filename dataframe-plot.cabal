@@ -115,7 +115,7 @@ library
     dataframe,
     chart-svg,
     prettychart,
-    perf,
+    perf >= 0.14,
     optics-core,
     bytestring,
     text,
