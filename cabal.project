@@ -1,5 +1,5 @@
 packages:
-  dataframe-plot.cabal
+  dataframe-load.cabal
 
 source-repository-package
   type: git

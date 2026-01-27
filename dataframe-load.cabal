@@ -1,5 +1,5 @@
 cabal-version:      3.14
-name:               dataframe-plot
+name:               dataframe-load
 version:            0.1.0.0
 license: BSD-3-Clause
 author:             Tony Day
@@ -131,14 +131,29 @@ library
     mwc-random,
     mealy,
     formatn,
+    directory,
+    filepath,
+    time,
+    wai >=3.2 && <3.3,
+    warp >=3.3 && <3.5,
+    binary >=0.8 && <0.9,
+    http-types >=0.12 && <0.13,
+    http-conduit >=2.3 && <2.4,
+    http-client >=0.7 && <0.8,
+    process >=1.6 && <1.7,
   exposed-modules:
     DataFrame.Plot
+    DataFrame.Chart
+    DataFrame.Load
+    DataFrame.Datasets
+    DataFrame.Cache
+    DataFrame.Download
 
-executable prettychart-serve
+executable dataframe-load
   import: ghc-options-exe-stanza
   import: ghc-options-stanza
   import: ghc2024-stanza
-  main-is: prettychart-serve.hs
+  main-is: dataframe-load.hs
   hs-source-dirs: app
   build-depends:
     async >=2.2.4 && <2.3,
@@ -146,7 +161,8 @@ executable prettychart-serve
     bytestring >=0.11.3 && <0.13,
     chart-svg >=0.8 && <0.9,
     dataframe,
-    dataframe-plot,
+    dataframe-load,
+    directory,
     filepath >=1.4 && <1.6,
     flow,
     fsnotify >=0.4.1 && <0.5,
