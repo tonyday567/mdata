@@ -1,4 +1,5 @@
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE OverloadedLabels #-}
 
 module DataFrame.Load
   ( pushServer,
@@ -471,12 +472,12 @@ streamEmptyChart respond = do
 
   let streamBody write flush = do
         let msg = BB.string8 "data: status:Select a dataset\n\n"
-        write msg
-        flush
+        _ <- write msg
+        _ <- flush
         forever $ do
           let keepAlive = BB.string8 ": keep-alive\n\n"
-          write keepAlive
-          flush
+          _ <- write keepAlive
+          _ <- flush
           threadDelay 30000000
 
   respond $ responseStream ok200 headers streamBody

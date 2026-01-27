@@ -16,8 +16,7 @@ import qualified Data.Text as T
 import Data.Int (Int64)
 import Control.Monad (when)
 import System.Directory
-  ( createDirectoryIfMissing,
-    doesDirectoryExist,
+  ( doesDirectoryExist,
     doesFileExist,
     listDirectory,
     removeFile,

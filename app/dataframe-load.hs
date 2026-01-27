@@ -22,7 +22,6 @@ import Chart
 import DataFrame qualified as D
 import DataFrame.Chart
 import DataFrame.Load
-import DataFrame.Plot (getDF)
 import Prettychart
 
 data Run = RunLoad | RunWatch | RunDemo | RunPush | RunCounter deriving (Eq, Show)
@@ -90,6 +89,12 @@ onSvgChange act e = maybe (pure False) (\fp -> TIO.readFile fp >>= act) (svgEven
 -- | Animation generators
 multiPlotAnimation :: D.DataFrame -> Int -> Int -> Int -> ChartOptions
 multiPlotAnimation df start step i = multiPlot (D.take (step * i + start) df)
+
+-- | Load CSV data from dataset
+getDF :: String -> IO D.DataFrame
+getDF dataset = case dataset of
+  "penguins" -> D.readCsv "penguins.csv"
+  _ -> D.readCsv "other/s5e11/test.csv"
 
 main :: IO ()
 main = do

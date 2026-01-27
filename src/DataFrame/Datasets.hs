@@ -24,7 +24,7 @@ import GHC.Generics (Generic)
 import Data.Text (Text)
 import qualified Data.Text as T
 import Data.Map.Strict qualified as Map
-import System.Directory (doesFileExist, doesDirectoryExist, listDirectory, getHomeDirectory)
+import System.Directory (doesDirectoryExist, listDirectory, getHomeDirectory)
 import System.FilePath ((</>))
 -- import Network.HTTP.Client for future remote dataset support
 
@@ -131,7 +131,7 @@ loadKaggle ds = do
 
 -- | Load from PMLB (Penn ML Benchmarks)
 loadPMLB :: Dataset -> IO D.DataFrame
-loadPMLB ds = do
+loadPMLB _ = do
   error "PMLB loading not yet implemented"
 
 -- | All classification dataset names
