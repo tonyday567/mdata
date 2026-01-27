@@ -177,3 +177,16 @@ executable dataframe-load
     warp >=3.3 && <3.5,
     binary,
   ghc-options: -O2
+
+executable generate-examples
+  import: ghc-options-exe-stanza
+  import: ghc-options-stanza
+  import: ghc2024-stanza
+  main-is: generate-examples.hs
+  hs-source-dirs: app
+  build-depends:
+    base >=4.14 && <5,
+    bytestring >=0.11.3 && <0.13,
+    chart-svg >=0.8 && <0.9,
+    dataframe-load,
+    filepath >=1.4 && <1.6,
