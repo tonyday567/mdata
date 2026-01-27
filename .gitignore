@@ -1,8 +1,5 @@
-/.ghc.environment.aarch64-darwin-9.12.2
 /dist-newstyle/
-/data/
-/.ipynb_checkpoints/
-/.devcontainer/
-/other/s5e11
 .ghc.environment.*
 /.claude/
+**/.DS_Store
+/other/s5e11/

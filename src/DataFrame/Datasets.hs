@@ -82,7 +82,7 @@ defaultDatasets =
           { dsName = "wine_quality",
             dsType = UCI,
             dsPath = "/tmp/wine_quality.csv",
-            dsUrl = Just "https://archive.ics.uci.edu/ml/machine-learning-databases/wine-quality/winequality-red.csv",
+            dsUrl = Just "https://mlr.cs.umass.edu/ml/machine-learning-databases/wine-quality/winequality-red.csv",
             dsKaggleDataset = Nothing,
             dsPMLBSetType = Nothing
           }
@@ -568,10 +568,13 @@ regressionNames =
 datasets :: [(Text, Text)]
 datasets =
   [ ("penguins", "file://penguins.csv"),
-    ("iris", "https://raw.githubusercontent.com/mwaskom/seaborn-data/master/iris.csv"),
+    ("iris", "https://archive.ics.uci.edu/ml/machine-learning-databases/iris/iris.data"),
+    ("wine_red", "https://archive.ics.uci.edu/ml/machine-learning-databases/wine-quality/winequality-red.csv"),
+    ("wine_white", "https://archive.ics.uci.edu/ml/machine-learning-databases/wine-quality/winequality-white.csv"),
     ("titanic", "https://raw.githubusercontent.com/datasciencedojo/datasets/master/titanic.csv"),
     ("flights", "https://raw.githubusercontent.com/mwaskom/seaborn-data/master/flights.csv"),
-    ("breast_cancer", "https://archive.ics.uci.edu/ml/machine-learning-databases/breast-cancer-wisconsin/wdbc.data")
+    ("breast_cancer", "https://archive.ics.uci.edu/ml/machine-learning-databases/breast-cancer-wisconsin/wdbc.data"),
+    ("seoul_bikes", "https://archive.ics.uci.edu/ml/machine-learning-databases/00560/SeoulBikeData.csv")
   ]
 
 -- | Get all dataset names for HTML dropdown
