@@ -46,7 +46,7 @@ C.writeChartOptions "other/titanic.svg" chart
 
 **s5e11** — original test, from kaggle.
 
-![s5e11](./other/s05e11.svg)
+![s5e11](./other/s5e11.svg)
 
 **penguins**
 
